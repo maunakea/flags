@@ -167,8 +167,6 @@
     font-weight: 600;
   }
   .srow .pname { border-left: 3px solid var(--c); padding-left: 10px; }
-  .srow .delta { color: #9aa1ab; font-size: 14px; margin-left: auto; margin-right: 14px; }
-  .srow .delta.plus { color: #4fc472; }
   .srow .tot { font-size: 18px; font-variant-numeric: tabular-nums; }
 
   .hint { font-size: 14px; color: #9aa1ab; }
@@ -210,12 +208,6 @@
     <div id="players" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
   </section>
 
-  <section id="scorePanel" class="panel hidden">
-    <h1 id="stateName2" style="font-size:clamp(22px,6vw,32px);font-weight:700"></h1>
-    <div id="roundScores" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
-    <div class="hint">Tap or swipe left for the next flag</div>
-  </section>
-
   <section id="finalPanel" class="panel hidden">
     <h2>Final scores</h2>
     <div id="finalScores" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
@@ -246,7 +238,7 @@ const STATES = [
 
 const PLAYERS = ["Vincy", "Cupcake", "Angel"];
 const COLORS  = ["#4da3ff", "#ffb454", "#6fd68b"];
-const TIMER_MS = 30000;
+const TIMER_MS = 15000;
 
 const flagUrl = code => `https://flagcdn.com/w1280/${code}.png`;
 
@@ -261,14 +253,12 @@ const totals = PLAYERS.map(() => 0);
 const history = [];   // rounds: {idx, phase, guesses, endsAt}
 let cur = -1;
 let finalShown = false;
-let autoTimer = null;
 
 const $ = id => document.getElementById(id);
 const els = {
   scores: $("scores"), counter: $("counter"), flagImg: $("flagImg"),
   tapHint: $("tapHint"), revealPanel: $("revealPanel"), stateName: $("stateName"),
-  players: $("players"), scorePanel: $("scorePanel"), stateName2: $("stateName2"),
-  roundScores: $("roundScores"), finalPanel: $("finalPanel"), finalScores: $("finalScores"),
+  players: $("players"), finalPanel: $("finalPanel"), finalScores: $("finalScores"),
   timerBar: $("timerBar"), timerFill: $("timerFill"),
 };
 
@@ -282,10 +272,6 @@ function renderScores() {
 
 function renderCounter() {
   els.counter.textContent = `${history.length} / ${STATES.length}`;
-}
-
-function clearAuto() {
-  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
 }
 
 function newRound() {
@@ -309,41 +295,26 @@ function enterRound() {
 }
 
 function nextFlag() {
-  clearAuto();
   if (finalShown) return;
-  const r = history[cur];
-  if (r && r.phase === "scores") r.phase = "done";
   if (cur < history.length - 1) { cur++; enterRound(); return; }
   if (history.length < order.length) { newRound(); return; }
-  if (history.every(x => x.phase === "done")) { finalShown = true; render(); }
+  if (history[cur].phase === "reveal") { finalShown = true; render(); }
 }
 
 function prevFlag() {
-  clearAuto();
   if (finalShown) { finalShown = false; render(); return; }
-  const r = history[cur];
-  if (r && r.phase === "scores") r.phase = "done";
   if (cur > 0) { cur--; enterRound(); }
 }
 
-function submitGuess(p, correct) {
+// Guesses stay editable so responses on a previous flag can be corrected.
+function setGuess(p, correct) {
   const r = history[cur];
-  if (!r || r.phase !== "reveal" || r.guesses[p] !== null) return;
-  r.guesses[p] = correct;
+  if (!r || r.phase !== "reveal" || r.guesses[p] === correct) return;
+  if (r.guesses[p] === true) totals[p]--;
   if (correct) totals[p]++;
+  r.guesses[p] = correct;
   renderScores();
   renderPlayers(r);
-  if (r.guesses.every(g => g !== null)) {
-    setTimeout(() => {
-      if (history[cur] === r && r.phase === "reveal") {
-        r.phase = "scores";
-        render();
-        autoTimer = setTimeout(() => {
-          if (history[cur] === r && r.phase === "scores") { r.phase = "done"; nextFlag(); }
-        }, 3500);
-      }
-    }, 450);
-  }
 }
 
 function renderPlayers(r) {
@@ -354,20 +325,9 @@ function renderPlayers(r) {
     return `<div class="prow" style="--c:${COLORS[i]}">
       <span class="pname">${p}</span>
       <span class="btns">
-        <button class="${cls("right", true)}" data-p="${i}" data-v="1" ${g !== null ? "disabled" : ""}>&#10003;</button>
-        <button class="${cls("wrong", false)}" data-p="${i}" data-v="0" ${g !== null ? "disabled" : ""}>&#10007;</button>
+        <button class="${cls("right", true)}" data-p="${i}" data-v="1">&#10003;</button>
+        <button class="${cls("wrong", false)}" data-p="${i}" data-v="0">&#10007;</button>
       </span>
-    </div>`;
-  }).join("");
-}
-
-function renderRoundScores(r) {
-  els.roundScores.innerHTML = PLAYERS.map((p, i) => {
-    const plus = r.guesses[i] === true;
-    return `<div class="srow" style="--c:${COLORS[i]}">
-      <span class="pname">${p}</span>
-      <span class="delta${plus ? " plus" : ""}">${plus ? "+1" : "+0"}</span>
-      <span class="tot">${totals[i]}</span>
     </div>`;
   }).join("");
 }
@@ -393,7 +353,6 @@ function render() {
     els.flagImg.parentElement.classList.add("hidden");
     els.tapHint.classList.add("hidden");
     els.revealPanel.classList.add("hidden");
-    els.scorePanel.classList.add("hidden");
     els.timerBar.classList.add("hidden");
     renderFinalScores();
     els.finalPanel.classList.remove("hidden");
@@ -415,21 +374,12 @@ function render() {
   els.timerBar.classList.toggle("hidden", r.phase !== "timer");
   els.tapHint.classList.toggle("hidden", r.phase !== "paused");
 
-  if (r.phase === "reveal" || r.phase === "done") {
+  if (r.phase === "reveal") {
     els.stateName.textContent = name;
-    if (r.phase === "reveal") renderPlayers(r);
-    else els.players.innerHTML = "";
+    renderPlayers(r);
     els.revealPanel.classList.remove("hidden");
   } else {
     els.revealPanel.classList.add("hidden");
-  }
-
-  if (r.phase === "scores") {
-    els.stateName2.textContent = name;
-    renderRoundScores(r);
-    els.scorePanel.classList.remove("hidden");
-  } else {
-    els.scorePanel.classList.add("hidden");
   }
 }
 
@@ -437,7 +387,6 @@ function handleTap() {
   const r = history[cur];
   if (finalShown || !r) return;
   if (r.phase === "paused") { r.phase = "reveal"; render(); }
-  else if (r.phase === "scores") { r.phase = "done"; nextFlag(); }
 }
 
 // --- timer loop ---
@@ -472,7 +421,7 @@ document.addEventListener("pointercancel", () => { pStart = null; });
 
 els.players.addEventListener("click", e => {
   const btn = e.target.closest("button");
-  if (btn) submitGuess(+btn.dataset.p, btn.dataset.v === "1");
+  if (btn) setGuess(+btn.dataset.p, btn.dataset.v === "1");
 });
 
 // debug handle (not used by the game itself)
