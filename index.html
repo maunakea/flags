@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>State Flags</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#127937;</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    position: fixed;
+    inset: 0;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    background: #14161a;
+    color: #f2f3f5;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 12px 16px 0;
+    gap: 12px;
+  }
+
+  #scores { display: flex; flex-direction: column; gap: 6px; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #c9cdd3;
+    background: #1f2329;
+    border-left: 3px solid var(--c);
+    border-radius: 6px;
+    padding: 4px 10px;
+    width: fit-content;
+  }
+  .chip b { color: #fff; font-size: 15px; font-variant-numeric: tabular-nums; }
+
+  #counter {
+    font-size: 14px;
+    font-weight: 600;
+    color: #c9cdd3;
+    background: #1f2329;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 12px 16px;
+    min-height: 0;
+  }
+
+  #flagWrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+  }
+
+  #flagImg {
+    max-width: 100%;
+    max-height: 58dvh;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.55);
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  #flagImg.loaded { opacity: 1; }
+  body.compact #flagImg { max-height: 32dvh; }
+
+  #tapHint {
+    font-size: 17px;
+    font-weight: 500;
+    color: #9aa1ab;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+
+  .panel {
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  #stateName {
+    font-size: clamp(26px, 7vw, 40px);
+    font-weight: 700;
+    letter-spacing: .3px;
+    text-align: center;
+  }
+
+  .prow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: #1f2329;
+    border-radius: 12px;
+    padding: 10px 14px;
+    gap: 12px;
+  }
+  .prow .pname {
+    font-size: 16px;
+    font-weight: 600;
+    border-left: 3px solid var(--c);
+    padding-left: 10px;
+  }
+  .prow .btns { display: flex; gap: 10px; }
+  .prow button {
+    font: inherit;
+    font-size: 20px;
+    font-weight: 700;
+    width: 56px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1.5px solid #3a4048;
+    background: transparent;
+    color: #e7e9ec;
+    cursor: pointer;
+  }
+  .prow button.right.sel { background: #1f7a3d; border-color: #1f7a3d; }
+  .prow button.wrong.sel { background: #a13333; border-color: #a13333; }
+  .prow button.dim { opacity: .3; }
+  .prow button:disabled { cursor: default; }
+
+  .srow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: #1f2329;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .srow .pname { border-left: 3px solid var(--c); padding-left: 10px; }
+  .srow .delta { color: #9aa1ab; font-size: 14px; margin-left: auto; margin-right: 14px; }
+  .srow .delta.plus { color: #4fc472; }
+  .srow .tot { font-size: 18px; font-variant-numeric: tabular-nums; }
+
+  .hint { font-size: 14px; color: #9aa1ab; }
+
+  h2 { font-size: 22px; font-weight: 700; }
+
+  #timerBar {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: calc(4px + env(safe-area-inset-bottom));
+    background: #23272e;
+  }
+  #timerFill {
+    height: 100%;
+    width: 100%;
+    background: #4da3ff;
+    transform-origin: left;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div id="scores"></div>
+  <div id="counter">0 / 50</div>
+</header>
+
+<main>
+  <div id="flagWrap"><img id="flagImg" alt="State flag" draggable="false"></div>
+
+  <div id="tapHint" class="hidden">Tap to reveal</div>
+
+  <section id="revealPanel" class="panel hidden">
+    <h1 id="stateName"></h1>
+    <div id="players" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+  </section>
+
+  <section id="scorePanel" class="panel hidden">
+    <h1 id="stateName2" style="font-size:clamp(22px,6vw,32px);font-weight:700"></h1>
+    <div id="roundScores" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+    <div class="hint">Tap or swipe left for the next flag</div>
+  </section>
+
+  <section id="finalPanel" class="panel hidden">
+    <h2>Final scores</h2>
+    <div id="finalScores" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+    <div class="hint">Reload the page to play again</div>
+  </section>
+</main>
+
+<div id="timerBar" class="hidden"><div id="timerFill"></div></div>
+
+<script>
+"use strict";
+
+const STATES = [
+  ["Alabama","us-al"],["Alaska","us-ak"],["Arizona","us-az"],["Arkansas","us-ar"],
+  ["California","us-ca"],["Colorado","us-co"],["Connecticut","us-ct"],["Delaware","us-de"],
+  ["Florida","us-fl"],["Georgia","us-ga"],["Hawaii","us-hi"],["Idaho","us-id"],
+  ["Illinois","us-il"],["Indiana","us-in"],["Iowa","us-ia"],["Kansas","us-ks"],
+  ["Kentucky","us-ky"],["Louisiana","us-la"],["Maine","us-me"],["Maryland","us-md"],
+  ["Massachusetts","us-ma"],["Michigan","us-mi"],["Minnesota","us-mn"],["Mississippi","us-ms"],
+  ["Missouri","us-mo"],["Montana","us-mt"],["Nebraska","us-ne"],["Nevada","us-nv"],
+  ["New Hampshire","us-nh"],["New Jersey","us-nj"],["New Mexico","us-nm"],["New York","us-ny"],
+  ["North Carolina","us-nc"],["North Dakota","us-nd"],["Ohio","us-oh"],["Oklahoma","us-ok"],
+  ["Oregon","us-or"],["Pennsylvania","us-pa"],["Rhode Island","us-ri"],["South Carolina","us-sc"],
+  ["South Dakota","us-sd"],["Tennessee","us-tn"],["Texas","us-tx"],["Utah","us-ut"],
+  ["Vermont","us-vt"],["Virginia","us-va"],["Washington","us-wa"],["West Virginia","us-wv"],
+  ["Wisconsin","us-wi"],["Wyoming","us-wy"]
+];
+
+const PLAYERS = ["Player 1", "Player 2", "Player 3"];
+const COLORS  = ["#4da3ff", "#ffb454", "#6fd68b"];
+const TIMER_MS = 30000;
+
+const flagUrl = code => `https://flagcdn.com/w1280/${code}.png`;
+
+// Pre-shuffled draw order guarantees no repeats until all 50 are shown.
+const order = [...STATES.keys()];
+for (let i = order.length - 1; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1));
+  [order[i], order[j]] = [order[j], order[i]];
+}
+
+const totals = PLAYERS.map(() => 0);
+const history = [];   // rounds: {idx, phase, guesses, endsAt}
+let cur = -1;
+let finalShown = false;
+let autoTimer = null;
+
+const $ = id => document.getElementById(id);
+const els = {
+  scores: $("scores"), counter: $("counter"), flagImg: $("flagImg"),
+  tapHint: $("tapHint"), revealPanel: $("revealPanel"), stateName: $("stateName"),
+  players: $("players"), scorePanel: $("scorePanel"), stateName2: $("stateName2"),
+  roundScores: $("roundScores"), finalPanel: $("finalPanel"), finalScores: $("finalScores"),
+  timerBar: $("timerBar"), timerFill: $("timerFill"),
+};
+
+els.flagImg.addEventListener("load", () => els.flagImg.classList.add("loaded"));
+
+function renderScores() {
+  els.scores.innerHTML = PLAYERS.map((p, i) =>
+    `<span class="chip" style="--c:${COLORS[i]}">${p} <b>${totals[i]}</b></span>`
+  ).join("");
+}
+
+function renderCounter() {
+  els.counter.textContent = `${history.length} / ${STATES.length}`;
+}
+
+function clearAuto() {
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+}
+
+function newRound() {
+  history.push({
+    idx: order[history.length],
+    phase: "timer",
+    guesses: PLAYERS.map(() => null),
+    endsAt: Date.now() + TIMER_MS,
+  });
+  cur = history.length - 1;
+  if (history.length < order.length) {
+    new Image().src = flagUrl(STATES[order[history.length]][1]); // preload next
+  }
+  render();
+}
+
+function enterRound() {
+  const r = history[cur];
+  if (r.phase === "timer") r.endsAt = Date.now() + TIMER_MS;
+  render();
+}
+
+function nextFlag() {
+  clearAuto();
+  if (finalShown) return;
+  const r = history[cur];
+  if (r && r.phase === "scores") r.phase = "done";
+  if (cur < history.length - 1) { cur++; enterRound(); return; }
+  if (history.length < order.length) { newRound(); return; }
+  if (history.every(x => x.phase === "done")) { finalShown = true; render(); }
+}
+
+function prevFlag() {
+  clearAuto();
+  if (finalShown) { finalShown = false; render(); return; }
+  const r = history[cur];
+  if (r && r.phase === "scores") r.phase = "done";
+  if (cur > 0) { cur--; enterRound(); }
+}
+
+function submitGuess(p, correct) {
+  const r = history[cur];
+  if (!r || r.phase !== "reveal" || r.guesses[p] !== null) return;
+  r.guesses[p] = correct;
+  if (correct) totals[p]++;
+  renderScores();
+  renderPlayers(r);
+  if (r.guesses.every(g => g !== null)) {
+    setTimeout(() => {
+      if (history[cur] === r && r.phase === "reveal") {
+        r.phase = "scores";
+        render();
+        autoTimer = setTimeout(() => {
+          if (history[cur] === r && r.phase === "scores") { r.phase = "done"; nextFlag(); }
+        }, 3500);
+      }
+    }, 450);
+  }
+}
+
+function renderPlayers(r) {
+  els.players.innerHTML = PLAYERS.map((p, i) => {
+    const g = r.guesses[i];
+    const cls = (btn, val) =>
+      `${btn}${g === null ? "" : (g === val ? " sel" : " dim")}`;
+    return `<div class="prow" style="--c:${COLORS[i]}">
+      <span class="pname">${p}</span>
+      <span class="btns">
+        <button class="${cls("right", true)}" data-p="${i}" data-v="1" ${g !== null ? "disabled" : ""}>&#10003;</button>
+        <button class="${cls("wrong", false)}" data-p="${i}" data-v="0" ${g !== null ? "disabled" : ""}>&#10007;</button>
+      </span>
+    </div>`;
+  }).join("");
+}
+
+function renderRoundScores(r) {
+  els.roundScores.innerHTML = PLAYERS.map((p, i) => {
+    const plus = r.guesses[i] === true;
+    return `<div class="srow" style="--c:${COLORS[i]}">
+      <span class="pname">${p}</span>
+      <span class="delta${plus ? " plus" : ""}">${plus ? "+1" : "+0"}</span>
+      <span class="tot">${totals[i]}</span>
+    </div>`;
+  }).join("");
+}
+
+function renderFinalScores() {
+  const best = Math.max(...totals);
+  els.finalScores.innerHTML = PLAYERS
+    .map((p, i) => ({ p, i, s: totals[i] }))
+    .sort((a, b) => b.s - a.s)
+    .map(({ p, i, s }) =>
+      `<div class="srow" style="--c:${COLORS[i]}">
+        <span class="pname">${p}${s === best ? " &#127942;" : ""}</span>
+        <span class="tot">${s}</span>
+      </div>`
+    ).join("");
+}
+
+function render() {
+  renderScores();
+  renderCounter();
+
+  if (finalShown) {
+    els.flagImg.parentElement.classList.add("hidden");
+    els.tapHint.classList.add("hidden");
+    els.revealPanel.classList.add("hidden");
+    els.scorePanel.classList.add("hidden");
+    els.timerBar.classList.add("hidden");
+    renderFinalScores();
+    els.finalPanel.classList.remove("hidden");
+    document.body.classList.remove("compact");
+    return;
+  }
+  els.finalPanel.classList.add("hidden");
+  els.flagImg.parentElement.classList.remove("hidden");
+
+  const r = history[cur];
+  if (!r) return;
+
+  const url = flagUrl(STATES[r.idx][1]);
+  if (!els.flagImg.src.endsWith(`/${STATES[r.idx][1]}.png`)) {
+    els.flagImg.classList.remove("loaded");
+    els.flagImg.src = url;
+  }
+
+  const name = STATES[r.idx][0];
+  const revealed = r.phase !== "timer" && r.phase !== "paused";
+  document.body.classList.toggle("compact", revealed);
+
+  els.timerBar.classList.toggle("hidden", r.phase !== "timer");
+  els.tapHint.classList.toggle("hidden", r.phase !== "paused");
+
+  if (r.phase === "reveal" || r.phase === "done") {
+    els.stateName.textContent = name;
+    if (r.phase === "reveal") renderPlayers(r);
+    else els.players.innerHTML = "";
+    els.revealPanel.classList.remove("hidden");
+  } else {
+    els.revealPanel.classList.add("hidden");
+  }
+
+  if (r.phase === "scores") {
+    els.stateName2.textContent = name;
+    renderRoundScores(r);
+    els.scorePanel.classList.remove("hidden");
+  } else {
+    els.scorePanel.classList.add("hidden");
+  }
+}
+
+function handleTap() {
+  const r = history[cur];
+  if (finalShown || !r) return;
+  if (r.phase === "paused") { r.phase = "reveal"; render(); }
+  else if (r.phase === "scores") { r.phase = "done"; nextFlag(); }
+}
+
+// --- timer loop ---
+(function tick() {
+  const r = history[cur];
+  if (r && r.phase === "timer" && !finalShown) {
+    const left = Math.max(0, r.endsAt - Date.now());
+    els.timerFill.style.transform = `scaleX(${left / TIMER_MS})`;
+    if (left <= 0) { r.phase = "paused"; render(); }
+  }
+  requestAnimationFrame(tick);
+})();
+
+// --- input: swipe vs tap ---
+let pStart = null;
+document.addEventListener("pointerdown", e => {
+  pStart = { x: e.clientX, y: e.clientY };
+});
+document.addEventListener("pointerup", e => {
+  if (!pStart) return;
+  const dx = e.clientX - pStart.x, dy = e.clientY - pStart.y;
+  pStart = null;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    if (dx < 0) nextFlag(); else prevFlag();
+    return;
+  }
+  if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && !e.target.closest("button")) {
+    handleTap();
+  }
+});
+document.addEventListener("pointercancel", () => { pStart = null; });
+
+els.players.addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (btn) submitGuess(+btn.dataset.p, btn.dataset.v === "1");
+});
+
+// debug handle (not used by the game itself)
+window.__game = { history, totals, get cur() { return cur; }, nextFlag, prevFlag, render };
+
+newRound();
+</script>
+</body>
+</html>
