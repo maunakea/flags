@@ -83,13 +83,17 @@
     align-items: center;
     justify-content: center;
     width: 100%;
+    max-width: 440px;
     height: 34dvh;
     flex: 0 0 auto;
   }
 
+  /* Every flag is stretched to the same full-width 5:3 box (the Minnesota flag's shape) */
   #flagImg {
-    max-width: 100%;
+    width: 100%;
+    aspect-ratio: 5 / 3;
     max-height: 100%;
+    object-fit: fill;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0,0,0,.55);
     opacity: 0;
