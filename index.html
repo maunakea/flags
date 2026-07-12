@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>State Flags</title>
+<title>Flags</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#127937;</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -28,6 +28,11 @@
     flex-direction: column;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  input {
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   header {
@@ -177,6 +182,104 @@
 
   h2 { font-size: 22px; font-weight: 700; }
 
+  #players, #finalScores { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+  /* 4-player games compact the layout so every guess row stays on screen
+     (the page is fixed and cannot scroll) */
+  body.compact #scores {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-width: 0;
+  }
+  body.compact .chip { font-size: 13px; white-space: nowrap; }
+  body.compact #flagWrap { height: 28dvh; }
+  body.compact main { gap: 14px; }
+  body.compact #players { gap: 8px; }
+  body.compact .prow { padding: 6px 12px; }
+  body.compact .prow button { width: 52px; height: 38px; }
+  body.compact #stateName { font-size: clamp(22px, 6vw, 32px); }
+
+  #setupPanel { margin-top: 4dvh; gap: 18px; }
+
+  #modeToggle {
+    display: flex;
+    width: 100%;
+    background: #1f2329;
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+  }
+  #modeToggle button {
+    flex: 1;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 10px 0;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: #9aa1ab;
+    cursor: pointer;
+  }
+  #modeToggle button.sel { background: #2e3742; color: #fff; }
+
+  #nameFields { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+  .nameInput {
+    width: 100%;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    color: #f2f3f5;
+    background: #1f2329;
+    border: none;
+    border-left: 3px solid var(--c);
+    border-radius: 12px;
+    padding: 12px 14px;
+    outline: none;
+  }
+  .nameInput::placeholder { color: #5c636d; font-weight: 500; }
+  .nameInput:focus { box-shadow: 0 0 0 2px #2e3742; }
+
+  .setupField {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: #1f2329;
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .setupField label { font-size: 16px; font-weight: 600; color: #c9cdd3; }
+  #timerInput {
+    width: 76px;
+    text-align: center;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    color: #f2f3f5;
+    background: #14161a;
+    border: 1.5px solid #3a4048;
+    border-radius: 10px;
+    padding: 8px 4px;
+    outline: none;
+  }
+  #timerInput:focus { border-color: #4da3ff; }
+
+  #startBtn {
+    width: 100%;
+    font: inherit;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: #1f7a3d;
+    color: #fff;
+    cursor: pointer;
+  }
+  #startBtn:active { background: #25914a; }
+
   #timerBar {
     position: fixed;
     left: 0;
@@ -197,24 +300,44 @@
 </head>
 <body>
 
-<header>
+<header id="gameHeader" class="hidden">
   <div id="scores"></div>
   <div id="counter">0 / 50</div>
 </header>
 
 <main>
-  <div id="flagWrap"><img id="flagImg" alt="State flag" draggable="false"></div>
+  <section id="setupPanel" class="panel">
+    <h2>&#127937; Flags</h2>
+    <div id="modeToggle">
+      <button type="button" data-mode="states" class="sel">US States</button>
+      <button type="button" data-mode="fifa">World Cup 2026</button>
+    </div>
+    <div id="nameFields">
+      <input class="nameInput" style="--c:#4da3ff" placeholder="Player 1" value="Vincy" maxlength="14" autocomplete="off" enterkeyhint="go">
+      <input class="nameInput" style="--c:#ffb454" placeholder="Player 2" value="Cupcake" maxlength="14" autocomplete="off" enterkeyhint="go">
+      <input class="nameInput" style="--c:#6fd68b" placeholder="Player 3" value="Angel" maxlength="14" autocomplete="off" enterkeyhint="go">
+      <input class="nameInput" style="--c:#c58bf2" placeholder="Player 4" maxlength="14" autocomplete="off" enterkeyhint="go">
+    </div>
+    <div class="setupField">
+      <label for="timerInput">Timer (seconds)</label>
+      <input id="timerInput" type="number" inputmode="numeric" min="1" max="300" step="1" value="15">
+    </div>
+    <button id="startBtn" type="button">Start game</button>
+    <div id="setupHint" class="hint hidden">Enter at least one player name</div>
+  </section>
+
+  <div id="flagWrap" class="hidden"><img id="flagImg" alt="Flag" draggable="false"></div>
 
   <div id="tapHint" class="hidden">Tap to reveal</div>
 
   <section id="revealPanel" class="panel hidden">
     <h1 id="stateName"></h1>
-    <div id="players" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+    <div id="players"></div>
   </section>
 
   <section id="finalPanel" class="panel hidden">
     <h2>Final scores</h2>
-    <div id="finalScores" style="display:flex;flex-direction:column;gap:10px;width:100%"></div>
+    <div id="finalScores"></div>
     <div class="hint">Reload the page to play again</div>
   </section>
 </main>
@@ -240,30 +363,47 @@ const STATES = [
   ["Wisconsin","us-wi"],["Wyoming","us-wy"]
 ];
 
-const PLAYERS = ["Vincy", "Cupcake", "Angel"];
-const COLORS  = ["#4da3ff", "#ffb454", "#6fd68b"];
-const TIMER_MS = 15000;
+// The 48 nations qualified for the 2026 FIFA World Cup.
+const COUNTRIES = [
+  ["Algeria","dz"],["Argentina","ar"],["Australia","au"],["Austria","at"],
+  ["Belgium","be"],["Bosnia & Herzegovina","ba"],["Brazil","br"],["Canada","ca"],
+  ["Cape Verde","cv"],["Colombia","co"],["Croatia","hr"],["Curaçao","cw"],
+  ["Czechia","cz"],["DR Congo","cd"],["Ecuador","ec"],["Egypt","eg"],
+  ["England","gb-eng"],["France","fr"],["Germany","de"],["Ghana","gh"],
+  ["Haiti","ht"],["Iran","ir"],["Iraq","iq"],["Ivory Coast","ci"],
+  ["Japan","jp"],["Jordan","jo"],["Mexico","mx"],["Morocco","ma"],
+  ["Netherlands","nl"],["New Zealand","nz"],["Norway","no"],["Panama","pa"],
+  ["Paraguay","py"],["Portugal","pt"],["Qatar","qa"],["Saudi Arabia","sa"],
+  ["Scotland","gb-sct"],["Senegal","sn"],["South Africa","za"],["South Korea","kr"],
+  ["Spain","es"],["Sweden","se"],["Switzerland","ch"],["Tunisia","tn"],
+  ["Türkiye","tr"],["United States","us"],["Uruguay","uy"],["Uzbekistan","uz"]
+];
+
+const COLORS = ["#4da3ff", "#ffb454", "#6fd68b", "#c58bf2"];
+
+let PLAYERS = [];
+let DECK = STATES;
+let TIMER_MS = 15000;
+let order = [];
+let totals = [];
+let started = false;
+let mode = "states";
 
 const flagUrl = code => `https://flagcdn.com/w1280/${code}.png`;
 
-// Pre-shuffled draw order guarantees no repeats until all 50 are shown.
-const order = [...STATES.keys()];
-for (let i = order.length - 1; i > 0; i--) {
-  const j = Math.floor(Math.random() * (i + 1));
-  [order[i], order[j]] = [order[j], order[i]];
-}
-
-const totals = PLAYERS.map(() => 0);
 const history = [];   // rounds: {idx, phase, guesses, endsAt}
 let cur = -1;
 let finalShown = false;
 
 const $ = id => document.getElementById(id);
 const els = {
-  scores: $("scores"), counter: $("counter"), flagImg: $("flagImg"),
+  header: $("gameHeader"), scores: $("scores"), counter: $("counter"),
+  flagWrap: $("flagWrap"), flagImg: $("flagImg"),
   tapHint: $("tapHint"), revealPanel: $("revealPanel"), stateName: $("stateName"),
   players: $("players"), finalPanel: $("finalPanel"), finalScores: $("finalScores"),
   timerBar: $("timerBar"), timerFill: $("timerFill"),
+  setupPanel: $("setupPanel"), modeToggle: $("modeToggle"),
+  timerInput: $("timerInput"), startBtn: $("startBtn"), setupHint: $("setupHint"),
 };
 
 els.flagImg.addEventListener("load", () => els.flagImg.classList.add("loaded"));
@@ -275,7 +415,7 @@ function renderScores() {
 }
 
 function renderCounter() {
-  els.counter.textContent = `${history.length} / ${STATES.length}`;
+  els.counter.textContent = `${history.length} / ${DECK.length}`;
 }
 
 function newRound() {
@@ -287,7 +427,7 @@ function newRound() {
   });
   cur = history.length - 1;
   if (history.length < order.length) {
-    new Image().src = flagUrl(STATES[order[history.length]][1]); // preload next
+    new Image().src = flagUrl(DECK[order[history.length]][1]); // preload next
   }
   render();
 }
@@ -299,13 +439,14 @@ function enterRound() {
 }
 
 function nextFlag() {
-  if (finalShown) return;
+  if (!started || finalShown) return;
   if (cur < history.length - 1) { cur++; enterRound(); return; }
   if (history.length < order.length) { newRound(); return; }
   if (history[cur].phase === "reveal") { finalShown = true; render(); }
 }
 
 function prevFlag() {
+  if (!started) return;
   if (finalShown) { finalShown = false; render(); return; }
   if (cur > 0) { cur--; enterRound(); }
 }
@@ -354,7 +495,7 @@ function render() {
   renderCounter();
 
   if (finalShown) {
-    els.flagImg.parentElement.classList.add("hidden");
+    els.flagWrap.classList.add("hidden");
     els.tapHint.classList.add("hidden");
     els.revealPanel.classList.add("hidden");
     els.timerBar.classList.add("hidden");
@@ -363,18 +504,18 @@ function render() {
     return;
   }
   els.finalPanel.classList.add("hidden");
-  els.flagImg.parentElement.classList.remove("hidden");
+  els.flagWrap.classList.remove("hidden");
 
   const r = history[cur];
   if (!r) return;
 
-  const url = flagUrl(STATES[r.idx][1]);
-  if (!els.flagImg.src.endsWith(`/${STATES[r.idx][1]}.png`)) {
+  const url = flagUrl(DECK[r.idx][1]);
+  if (!els.flagImg.src.endsWith(`/${DECK[r.idx][1]}.png`)) {
     els.flagImg.classList.remove("loaded");
     els.flagImg.src = url;
   }
 
-  const name = STATES[r.idx][0];
+  const name = DECK[r.idx][0];
   els.timerBar.classList.toggle("hidden", r.phase !== "timer");
   els.tapHint.classList.toggle("hidden", r.phase !== "paused");
 
@@ -389,14 +530,62 @@ function render() {
 
 function handleTap() {
   const r = history[cur];
-  if (finalShown || !r) return;
+  if (!started || finalShown || !r) return;
   if (r.phase === "paused") { r.phase = "reveal"; render(); }
 }
+
+// --- setup screen ---
+els.modeToggle.addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  mode = btn.dataset.mode;
+  for (const b of els.modeToggle.children) b.classList.toggle("sel", b === btn);
+});
+
+function startGame() {
+  const names = [...document.querySelectorAll(".nameInput")]
+    .map(i => i.value.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  if (!names.length) {
+    els.setupHint.classList.remove("hidden");
+    return;
+  }
+  PLAYERS = names;
+  const secs = parseFloat(els.timerInput.value);
+  TIMER_MS = (secs >= 1 && secs <= 300 ? secs : 15) * 1000;
+  DECK = mode === "fifa" ? COUNTRIES : STATES;
+
+  // Pre-shuffled draw order guarantees no repeats until the whole deck is shown.
+  order = [...DECK.keys()];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  totals = PLAYERS.map(() => 0);
+
+  started = true;
+  document.body.classList.toggle("compact", PLAYERS.length === 4);
+  els.setupPanel.classList.add("hidden");
+  els.header.classList.remove("hidden");
+  els.flagWrap.classList.remove("hidden");
+  newRound();
+}
+
+// Confirm before leaving mid-game so an accidental reload doesn't wipe the scores.
+window.addEventListener("beforeunload", e => {
+  if (started && !finalShown) { e.preventDefault(); e.returnValue = ""; }
+});
+
+els.startBtn.addEventListener("click", startGame);
+els.setupPanel.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); startGame(); }
+});
 
 // --- timer loop ---
 (function tick() {
   const r = history[cur];
-  if (r && r.phase === "timer" && !finalShown) {
+  if (started && r && r.phase === "timer" && !finalShown) {
     const left = Math.max(0, r.endsAt - Date.now());
     els.timerFill.style.transform = `scaleX(${left / TIMER_MS})`;
     if (left <= 0) { r.phase = "paused"; render(); }
@@ -410,7 +599,7 @@ document.addEventListener("pointerdown", e => {
   pStart = { x: e.clientX, y: e.clientY };
 });
 document.addEventListener("pointerup", e => {
-  if (!pStart) return;
+  if (!pStart || !started) { pStart = null; return; }
   const dx = e.clientX - pStart.x, dy = e.clientY - pStart.y;
   pStart = null;
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
@@ -429,9 +618,7 @@ els.players.addEventListener("click", e => {
 });
 
 // debug handle (not used by the game itself)
-window.__game = { history, totals, get cur() { return cur; }, nextFlag, prevFlag, render };
-
-newRound();
+window.__game = { history, get totals() { return totals; }, get cur() { return cur; }, nextFlag, prevFlag, render, startGame };
 </script>
 </body>
 </html>
